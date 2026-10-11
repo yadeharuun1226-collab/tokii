@@ -82,7 +82,7 @@ export default function Home() {
     }
   };
 
-  // 投稿処理（S3直アップロード＋DynamoDB保存）
+// 投稿処理（S3直アップロード＋DynamoDB保存）
   const handleCreateEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
@@ -90,6 +90,9 @@ export default function Home() {
     try {
       setIsSubmitting(true);
       let imageUrl = '';
+
+      // ① imageFile が入っているか確認
+      console.log('imageFile:', imageFile);
 
       if (imageFile) {
         setStatus('画像をアップロード中...');
@@ -102,8 +105,12 @@ export default function Home() {
           }),
         });
 
+        console.log('upload-url status:', resUrl.status);
         if (!resUrl.ok) throw new Error('アップロードURLの取得に失敗しました');
-        const { uploadUrl, fileUrl } = await resUrl.json();
+        
+        const data = await resUrl.json();
+        console.log('upload-url data:', data);
+        const { uploadUrl, fileUrl } = data;
 
         const uploadRes = await fetch(uploadUrl, {
           method: 'PUT',
@@ -111,9 +118,12 @@ export default function Home() {
           body: imageFile,
         });
 
+        console.log('S3 upload status:', uploadRes.status);
         if (!uploadRes.ok) throw new Error('S3への画像送信に失敗しました');
         imageUrl = fileUrl;
       }
+
+      console.log('Final imageUrl to save:', imageUrl);
 
       setStatus('記憶を刻んでいます...');
       const tagArray = tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [];
@@ -150,6 +160,7 @@ export default function Home() {
       setImagePreview(null);
       setShowForm(false);
     } catch (err: any) {
+      console.error('Error in handleCreateEntry:', err);
       setStatus(`❌ ${err.message}`);
     } finally {
       setIsSubmitting(false);

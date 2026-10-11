@@ -35,12 +35,10 @@ export default function Home() {
 
   const fetchAllEntries = async () => {
     try {
-      // 一覧用取得（既存の/entries/random等の仕組みを拡張、または全体スキャン）
       const res = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       if (data) {
-        // デモ用一覧保持（ランダムで得たデータを蓄積、または全件取得）
         setEntries((prev) => {
           const exists = prev.some((item) => item.SK === data.SK);
           return exists ? prev : [data, ...prev];
@@ -62,7 +60,6 @@ export default function Home() {
       const data = await res.json();
       if (data) {
         setRandomEntry(data);
-        // 一覧未登録なら追加
         setEntries((prev) => (prev.some((item) => item.SK === data.SK) ? prev : [data, ...prev]));
         setStatus('');
       } else {
@@ -82,7 +79,7 @@ export default function Home() {
     }
   };
 
-// 投稿処理（S3直アップロード＋DynamoDB保存）
+  // 投稿処理（S3直アップロード＋DynamoDB保存）
   const handleCreateEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
@@ -90,9 +87,6 @@ export default function Home() {
     try {
       setIsSubmitting(true);
       let imageUrl = '';
-
-      // ① imageFile が入っているか確認
-      console.log('imageFile:', imageFile);
 
       if (imageFile) {
         setStatus('画像をアップロード中...');
@@ -105,11 +99,9 @@ export default function Home() {
           }),
         });
 
-        console.log('upload-url status:', resUrl.status);
         if (!resUrl.ok) throw new Error('アップロードURLの取得に失敗しました');
         
         const data = await resUrl.json();
-        console.log('upload-url data:', data);
         const { uploadUrl, fileUrl } = data;
 
         const uploadRes = await fetch(uploadUrl, {
@@ -118,12 +110,9 @@ export default function Home() {
           body: imageFile,
         });
 
-        console.log('S3 upload status:', uploadRes.status);
         if (!uploadRes.ok) throw new Error('S3への画像送信に失敗しました');
         imageUrl = fileUrl;
       }
-
-      console.log('Final imageUrl to save:', imageUrl);
 
       setStatus('記憶を刻んでいます...');
       const tagArray = tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [];
@@ -167,6 +156,36 @@ export default function Home() {
     }
   };
 
+  // 【追加】思い出削除処理
+  const handleDeleteEntry = async (pk: string, sk: string) => {
+    if (!window.confirm('この記憶を削除してもよろしいですか？')) return;
+
+    try {
+      const res = await fetch(
+        `${API_URL}/entries?pk=${encodeURIComponent(pk)}&sk=${encodeURIComponent(sk)}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (!res.ok) throw new Error('削除に失敗しました');
+
+      // ローカルステートから除外
+      setEntries((prev) => prev.filter((entry) => entry.SK !== sk));
+      
+      // もしランダム表示中のものと同じならクリア
+      if (randomEntry?.SK === sk) {
+        setRandomEntry(null);
+      }
+
+      setStatus('🗑️ 記憶が削除されました');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      setStatus(`❌ 削除エラー: ${err.message}`);
+    }
+  };
+
   const formatDate = (skValue?: string, createdAt?: string) => {
     const dateStr = createdAt || (skValue?.startsWith('ENTRY#') ? Number(skValue.replace('ENTRY#', '')) : null);
     const date = dateStr ? new Date(dateStr) : new Date();
@@ -200,7 +219,7 @@ export default function Home() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-[#2a2a2a] text-white text-xs rounded-full hover:bg-black transition-colors flex items-center space-x-1.5 shadow-sm"
+          className="px-4 py-2 bg-[#2a2a2a] text-white text-xs rounded-full hover:bg-black transition-colors flex items-center space-x-1.5 shadow-sm cursor-pointer"
         >
           <span>🖊</span>
           <span>時を認める</span>
@@ -247,14 +266,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs text-neutral-500 hover:text-neutral-800"
+                  className="px-4 py-2 text-xs text-neutral-500 hover:text-neutral-800 cursor-pointer"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-[#2a2a2a] text-white text-xs rounded-xl hover:bg-black transition"
+                  className="px-5 py-2 bg-[#2a2a2a] text-white text-xs rounded-xl hover:bg-black transition cursor-pointer"
                 >
                   {isSubmitting ? '保存中...' : '記録する'}
                 </button>
@@ -279,7 +298,7 @@ export default function Home() {
             </div>
             <button
               onClick={handleFetchRandom}
-              className="text-xs text-neutral-400 hover:text-neutral-600 flex items-center space-x-1 transition"
+              className="text-xs text-neutral-400 hover:text-neutral-600 flex items-center space-x-1 transition cursor-pointer"
             >
               <span>🔄</span>
               <span>別の時をひらく</span>
@@ -306,8 +325,15 @@ export default function Home() {
                   <img src={randomEntry.imageUrl} alt="Memory" className="w-full h-full object-cover" />
                 </div>
               )}
-              <div className="text-xs text-neutral-400 font-serif">
-                {formatDate(randomEntry.SK, randomEntry.created_at)}
+              <div className="flex items-center justify-between text-xs text-neutral-400 font-serif">
+                <span>{formatDate(randomEntry.SK, randomEntry.created_at)}</span>
+                <button 
+                  onClick={() => handleDeleteEntry(randomEntry.PK, randomEntry.SK)}
+                  className="hover:text-red-500 transition cursor-pointer" 
+                  title="削除"
+                >
+                  🗑️
+                </button>
               </div>
               {randomEntry.tags && randomEntry.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -342,7 +368,7 @@ export default function Home() {
               <button
                 key={t}
                 onClick={() => setSelectedTag(t)}
-                className={`px-3.5 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap ${
+                className={`px-3.5 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap cursor-pointer ${
                   selectedTag === t
                     ? 'bg-[#2a2a2a] text-white'
                     : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
@@ -365,7 +391,11 @@ export default function Home() {
                 
                 <div className="flex items-center justify-between text-xs text-neutral-400 font-serif">
                   <span>{formatDate(entry.SK, entry.created_at)}</span>
-                  <button className="hover:text-red-500 transition" title="削除">
+                  <button 
+                    onClick={() => handleDeleteEntry(entry.PK, entry.SK)}
+                    className="hover:text-red-500 transition cursor-pointer" 
+                    title="削除"
+                  >
                     🗑️
                   </button>
                 </div>

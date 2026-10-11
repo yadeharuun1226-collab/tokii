@@ -28,7 +28,7 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 初期化：すべての記憶を取得＆初回ランダムピック
+  // 初期化：最初のランダムピック（および一覧の蓄積）
   useEffect(() => {
     fetchAllEntries();
   }, []);
@@ -50,17 +50,30 @@ export default function Home() {
     }
   };
 
-  // ランダム取得
+  // タグ絞り込みを考慮したランダム取得
   const handleFetchRandom = async () => {
     try {
       setStatus('過去の記憶を呼び起こしています...');
+      
+      // まずAPIから新しい候補を引く、または既存のストックから探す
       const res = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
       if (!res.ok) throw new Error('記憶が見つかりませんでした');
 
       const data = await res.json();
       if (data) {
-        setRandomEntry(data);
         setEntries((prev) => (prev.some((item) => item.SK === data.SK) ? prev : [data, ...prev]));
+        
+        // randomTag が「すべて」または取得したデータがタグを含んでいる場合
+        const targetEntries = randomTag === 'すべて' 
+          ? [data, ...entries] 
+          : [data, ...entries].filter((e) => e.tags?.includes(randomTag));
+
+        if (targetEntries.length > 0) {
+          const randomIndex = Math.floor(Math.random() * targetEntries.length);
+          setRandomEntry(targetEntries[randomIndex]);
+        } else {
+          setRandomEntry(data);
+        }
         setStatus('');
       } else {
         setStatus('登録されている記憶がありません');
@@ -156,7 +169,7 @@ export default function Home() {
     }
   };
 
-  // 【追加】思い出削除処理
+  // 思い出削除処理
   const handleDeleteEntry = async (pk: string, sk: string) => {
     if (!window.confirm('この記憶を削除してもよろしいですか？')) return;
 
@@ -170,10 +183,8 @@ export default function Home() {
 
       if (!res.ok) throw new Error('削除に失敗しました');
 
-      // ローカルステートから除外
       setEntries((prev) => prev.filter((entry) => entry.SK !== sk));
       
-      // もしランダム表示中のものと同じならクリア
       if (randomEntry?.SK === sk) {
         setRandomEntry(null);
       }
@@ -240,14 +251,51 @@ export default function Home() {
                 rows={3}
                 className="w-full p-4 bg-[#fcfbf9] border border-neutral-200 rounded-2xl focus:outline-none focus:border-neutral-400 text-sm placeholder:text-neutral-300 resize-none"
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              
+              <div className="space-y-2">
                 <input
                   type="text"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
-                  placeholder="タグ (例: 感謝, うれしい)"
-                  className="p-3 bg-[#fcfbf9] border border-neutral-200 rounded-xl text-xs focus:outline-none"
+                  placeholder="タグ (例: 感謝, うれしい - カンマ区切り)"
+                  className="w-full p-3 bg-[#fcfbf9] border border-neutral-200 rounded-xl text-xs focus:outline-none"
                 />
+
+                {/* 登録済みタグからのクイック選択バッジ */}
+                {allTags.filter((t) => t !== 'すべて').length > 0 && (
+                  <div className="flex flex-wrap gap-1 items-center pt-1">
+                    <span className="text-[10px] text-neutral-400 mr-1">既存タグから選ぶ:</span>
+                    {allTags.filter((t) => t !== 'すべて').map((t) => {
+                      const currentTagArray = tags ? tags.split(',').map((s) => s.trim()).filter(Boolean) : [];
+                      const isSelected = currentTagArray.includes(t);
+                      
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              const newTags = currentTagArray.filter((item) => item !== t);
+                              setTags(newTags.join(', '));
+                            } else {
+                              setTags([...currentTagArray, t].join(', '));
+                            }
+                          }}
+                          className={`text-[11px] px-2.5 py-0.5 rounded-md transition cursor-pointer border ${
+                            isSelected 
+                              ? 'bg-[#2a2a2a] text-white border-[#2a2a2a]' 
+                              : 'bg-[#f4f2eb] text-amber-800 border-amber-200/60 hover:bg-amber-100'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   type="file"
                   accept="image/*"
@@ -350,7 +398,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="text-center py-10 text-neutral-400 text-xs font-serif">
-              まだ記憶がひらかれていません
+              該当するタグの記憶がありません
             </div>
           )}
         </section>

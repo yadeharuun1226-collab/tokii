@@ -1,19 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  PenTool, 
-  Sparkles, 
-  RefreshCw, 
-  Trash2, 
-  Plus, 
-  X, 
-  ChevronDown, 
-  ChevronUp, 
-  Layers, 
-  Tag, 
-  Image as ImageIcon 
-} from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -25,6 +12,43 @@ interface Entry {
   imageUrl?: string;
   created_at?: string;
 }
+
+// 外部パッケージ不要の軽量インラインSVGアイコン
+const PenIcon = () => (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
+
+const RefreshIcon = () => (
+  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21.5 2v6h-6M2.5 22v-6h6" />
+    <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M2.5 16l1.2 1.2A10 10 0 0 0 22 12.5" />
+  </svg>
+);
+
+const LayersIcon = () => (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+    <polyline points="2 17 12 22 22 17" />
+    <polyline points="2 12 12 17 22 12" />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
 
 export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -44,7 +68,6 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 初期化：起動時に「データ（最新10件）」と「ランダム表示用」をロード
   useEffect(() => {
     initializeAppData();
   }, []);
@@ -250,7 +273,7 @@ export default function Home() {
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-full hover:bg-zinc-800 active:scale-95 transition-all flex items-center space-x-2 shadow-sm cursor-pointer"
         >
-          <PenTool size={13} className="stroke-[1.75]" />
+          <PenIcon />
           <span>時を留める</span>
         </button>
       </header>
@@ -263,7 +286,7 @@ export default function Home() {
             <div className="flex justify-between items-center">
               <h2 className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase">New Moment</h2>
               <button onClick={() => setShowForm(false)} className="text-zinc-400 hover:text-zinc-700">
-                <X size={16} />
+                <CloseIcon />
               </button>
             </div>
 
@@ -277,16 +300,13 @@ export default function Home() {
               />
               
               <div className="space-y-2">
-                <div className="relative flex items-center">
-                  <Tag size={14} className="absolute left-3.5 text-zinc-400" />
-                  <input
-                    type="text"
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
-                    placeholder="タグ (カンマ区切り)"
-                    className="w-full pl-9 pr-3 py-2.5 bg-zinc-50/50 border border-zinc-200/80 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="タグ (例: 感謝, 読書 - カンマ区切り)"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200/80 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
+                />
 
                 {/* 既存タグバッジ */}
                 {allTags.filter((t) => t !== 'all').length > 0 && (
@@ -322,10 +342,9 @@ export default function Home() {
                 )}
               </div>
 
-              {/* 画像追加 */}
+              {/* 画像選択 */}
               <div className="flex items-center space-x-3">
                 <label className="cursor-pointer inline-flex items-center space-x-1.5 text-xs text-zinc-500 bg-zinc-100 px-3 py-2 rounded-xl hover:bg-zinc-200/60 transition">
-                  <ImageIcon size={14} />
                   <span>画像を選択</span>
                   <input
                     type="file"
@@ -354,14 +373,14 @@ export default function Home() {
           </section>
         )}
 
-        {/* Status Notification */}
+        {/* ステータス */}
         {status && (
           <div className="text-center text-xs text-zinc-400 transition-all font-mono">
             {status}
           </div>
         )}
 
-        {/* 1. あの日の tokii（ランダム） */}
+        {/* 1. あの日の tokii（Flashback） */}
         <section className="bg-white p-6 sm:p-7 rounded-3xl border border-zinc-200/70 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] space-y-4">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <div className="flex items-center space-x-2">
@@ -372,7 +391,7 @@ export default function Home() {
               onClick={handleFetchRandom}
               className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center space-x-1.5 transition cursor-pointer"
             >
-              <RefreshCw size={12} className="stroke-[2]" />
+              <RefreshIcon />
               <span>別の時</span>
             </button>
           </div>
@@ -404,7 +423,7 @@ export default function Home() {
                   className="text-zinc-300 hover:text-rose-500 transition cursor-pointer p-1" 
                   title="削除"
                 >
-                  <Trash2 size={13} />
+                  <TrashIcon />
                 </button>
               </div>
               {randomEntry.tags && randomEntry.tags.length > 0 && (
@@ -434,9 +453,9 @@ export default function Home() {
               onClick={handleToggleTimeline}
               className="px-5 py-2 bg-white/80 backdrop-blur-sm border border-zinc-200/80 rounded-full text-xs text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 transition-all flex items-center space-x-2 shadow-xs cursor-pointer active:scale-95"
             >
-              <Layers size={13} className="text-zinc-500" />
+              <LayersIcon />
               <span>{isTimelineOpen ? '重なる記憶を閉じる' : '重なる記憶を覗く'}</span>
-              {isTimelineOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              <span className="text-[10px] text-zinc-400">{isTimelineOpen ? '▲' : '▼'}</span>
             </button>
           </div>
 
@@ -484,7 +503,7 @@ export default function Home() {
                           className="text-zinc-300 hover:text-rose-500 transition cursor-pointer p-1" 
                           title="削除"
                         >
-                          <Trash2 size={13} />
+                          <TrashIcon />
                         </button>
                       </div>
 

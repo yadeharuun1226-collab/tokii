@@ -1,6 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { 
+  PenTool, 
+  Sparkles, 
+  RefreshCw, 
+  Trash2, 
+  Plus, 
+  X, 
+  ChevronDown, 
+  ChevronUp, 
+  Layers, 
+  Tag, 
+  Image as ImageIcon 
+} from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -16,12 +29,11 @@ interface Entry {
 export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [randomEntry, setRandomEntry] = useState<Entry | null>(null);
-  const [selectedTag, setSelectedTag] = useState<string>('すべて');
-  const [randomTag, setRandomTag] = useState<string>('すべて');
+  const [selectedTag, setSelectedTag] = useState<string>('all');
+  const [randomTag, setRandomTag] = useState<string>('all');
   
   // タイムライン開閉状態
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
 
   // 投稿フォーム状態
   const [showForm, setShowForm] = useState(false);
@@ -32,14 +44,13 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 初期化：起動時に「タグ選択用のデータ（最新10件）」と「ランダム表示用」をロード
+  // 初期化：起動時に「データ（最新10件）」と「ランダム表示用」をロード
   useEffect(() => {
     initializeAppData();
   }, []);
 
   const initializeAppData = async () => {
     try {
-      // 1. 一覧（タグ候補用）を取得
       const listRes = await fetch(`${API_URL}/entries`, { cache: 'no-store' });
       if (listRes.ok) {
         const listData = await listRes.json();
@@ -48,7 +59,6 @@ export default function Home() {
         }
       }
 
-      // 2. ある日の tokii 用のランダム取得
       const randomRes = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
       if (randomRes.ok) {
         const randomData = await randomRes.json();
@@ -61,12 +71,10 @@ export default function Home() {
     }
   };
 
-  // 「重なる記憶を覗く」ボタンのトグル処理
   const handleToggleTimeline = () => {
     setIsTimelineOpen((prev) => !prev);
   };
 
-  // タグ絞り込みを考慮したランダム取得
   const handleFetchRandom = async () => {
     try {
       setStatus('過去の記憶を呼び起こしています...');
@@ -78,7 +86,7 @@ export default function Home() {
       if (data) {
         setEntries((prev) => (prev.some((item) => item.SK === data.SK) ? prev : [data, ...prev]));
         
-        const targetEntries = randomTag === 'すべて' 
+        const targetEntries = randomTag === 'all' 
           ? [data, ...entries] 
           : [data, ...entries].filter((e) => e.tags?.includes(randomTag));
 
@@ -97,7 +105,6 @@ export default function Home() {
     }
   };
 
-  // 画像選択
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -106,7 +113,6 @@ export default function Home() {
     }
   };
 
-  // 投稿処理（S3直アップロード＋DynamoDB保存）
   const handleCreateEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
@@ -166,25 +172,24 @@ export default function Home() {
         created_at: new Date().toISOString(),
       };
 
-      // タイムラインの先頭に追加（最大10件を維持）
       setEntries((prev) => [createdItem, ...prev].slice(0, 10));
       setRandomEntry(createdItem);
 
-      setStatus('✨ 記憶が刻まれました');
+      setStatus('記憶が刻まれました');
       setContent('');
       setTags('');
       setImageFile(null);
       setImagePreview(null);
       setShowForm(false);
+      setTimeout(() => setStatus(''), 3000);
     } catch (err: any) {
       console.error('Error in handleCreateEntry:', err);
-      setStatus(`❌ ${err.message}`);
+      setStatus(`エラー: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 思い出削除処理
   const handleDeleteEntry = async (pk: string, sk: string) => {
     if (!window.confirm('この記憶を削除してもよろしいですか？')) return;
 
@@ -204,83 +209,90 @@ export default function Home() {
         setRandomEntry(null);
       }
 
-      setStatus('🗑️ 記憶が削除されました');
+      setStatus('記憶を削除しました');
       setTimeout(() => setStatus(''), 3000);
     } catch (err: any) {
       console.error('Delete error:', err);
-      setStatus(`❌ 削除エラー: ${err.message}`);
+      setStatus(`削除エラー: ${err.message}`);
     }
   };
 
   const formatDate = (skValue?: string, createdAt?: string) => {
     const dateStr = createdAt || (skValue?.startsWith('ENTRY#') ? Number(skValue.replace('ENTRY#', '')) : null);
     const date = dateStr ? new Date(dateStr) : new Date();
-    if (isNaN(date.getTime())) return '日付不明';
+    if (isNaN(date.getTime())) return 'UNKNOWN DATE';
     return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
       weekday: 'short',
-    });
+    }).replace(/\//g, '.');
   };
 
-  // タグ一覧抽出
   const allTags = Array.from(
-    new Set(['すべて', ...entries.flatMap((e) => e.tags || [])])
+    new Set(['all', ...entries.flatMap((e) => e.tags || [])])
   );
 
-  // フィルタリングされた一覧
-  const filteredEntries = selectedTag === 'すべて'
+  const filteredEntries = selectedTag === 'all'
     ? entries
     : entries.filter((e) => e.tags?.includes(selectedTag));
 
   return (
-    <div className="min-h-screen bg-[#f8f7f4] text-neutral-800 font-sans pb-20">
+    <div className="min-h-screen bg-[#F6F5F2] text-zinc-800 font-sans pb-24 selection:bg-zinc-200">
       
-      {/* ナビゲーションヘッダー */}
-      <header className="max-w-2xl mx-auto px-6 py-6 flex items-center justify-between">
-        <div className="flex items-baseline space-x-3">
-          <h1 className="text-2xl font-serif text-neutral-900 tracking-wider">tokii</h1>
-          <span className="text-xs text-neutral-400 font-light">時を解き、残す</span>
+      {/* Header */}
+      <header className="max-w-xl mx-auto px-6 pt-10 pb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-medium tracking-tight text-zinc-900 font-serif">tokii</h1>
+          <p className="text-[10px] text-zinc-400 tracking-wider uppercase mt-0.5">archiving moments</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-[#2a2a2a] text-white text-xs rounded-full hover:bg-black transition-colors flex items-center space-x-1.5 shadow-sm cursor-pointer"
+          className="px-4 py-2 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-full hover:bg-zinc-800 active:scale-95 transition-all flex items-center space-x-2 shadow-sm cursor-pointer"
         >
-          <span>🖊</span>
-          <span>tokiiを残す</span>
+          <PenTool size={13} className="stroke-[1.75]" />
+          <span>時を留める</span>
         </button>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 space-y-8">
+      <main className="max-w-xl mx-auto px-4 space-y-6">
 
-        {/* 投稿フォーム（開閉式） */}
+        {/* 投稿フォーム */}
         {showForm && (
-          <section className="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-sm space-y-4 animate-fade-in">
-            <h2 className="text-xs font-medium text-neutral-400 tracking-widest uppercase">新しい時を留める</h2>
+          <section className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-zinc-200/80 shadow-sm space-y-4 transition-all">
+            <div className="flex justify-between items-center">
+              <h2 className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase">New Moment</h2>
+              <button onClick={() => setShowForm(false)} className="text-zinc-400 hover:text-zinc-700">
+                <X size={16} />
+              </button>
+            </div>
+
             <form onSubmit={handleCreateEntry} className="space-y-4">
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="近所の喫茶店でゆっくり読書..."
+                placeholder="言葉を残す..."
                 rows={3}
-                className="w-full p-4 bg-[#fcfbf9] border border-neutral-200 rounded-2xl focus:outline-none focus:border-neutral-400 text-sm placeholder:text-neutral-300 resize-none"
+                className="w-full p-4 bg-zinc-50/50 border border-zinc-200/80 rounded-2xl focus:outline-none focus:ring-1 focus:ring-zinc-400 text-sm placeholder:text-zinc-400 resize-none transition-all"
               />
               
               <div className="space-y-2">
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="タグ (例: 感謝, うれしい - カンマ区切り)"
-                  className="w-full p-3 bg-[#fcfbf9] border border-neutral-200 rounded-xl text-xs focus:outline-none"
-                />
+                <div className="relative flex items-center">
+                  <Tag size={14} className="absolute left-3.5 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                    placeholder="タグ (カンマ区切り)"
+                    className="w-full pl-9 pr-3 py-2.5 bg-zinc-50/50 border border-zinc-200/80 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
+                  />
+                </div>
 
-                {/* 登録済みタグからのクイック選択バッジ（初期表示から反映されます） */}
-                {allTags.filter((t) => t !== 'すべて').length > 0 && (
-                  <div className="flex flex-wrap gap-1 items-center pt-1">
-                    <span className="text-[10px] text-neutral-400 mr-1">既存タグから選ぶ:</span>
-                    {allTags.filter((t) => t !== 'すべて').map((t) => {
+                {/* 既存タグバッジ */}
+                {allTags.filter((t) => t !== 'all').length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 items-center pt-1">
+                    <span className="text-[10px] text-zinc-400 mr-1">既存タグ:</span>
+                    {allTags.filter((t) => t !== 'all').map((t) => {
                       const currentTagArray = tags ? tags.split(',').map((s) => s.trim()).filter(Boolean) : [];
                       const isSelected = currentTagArray.includes(t);
                       
@@ -296,13 +308,13 @@ export default function Home() {
                               setTags([...currentTagArray, t].join(', '));
                             }
                           }}
-                          className={`text-[11px] px-2.5 py-0.5 rounded-md transition cursor-pointer border ${
+                          className={`text-[11px] px-2.5 py-0.5 rounded-full transition-all cursor-pointer border ${
                             isSelected 
-                              ? 'bg-[#2a2a2a] text-white border-[#2a2a2a]' 
-                              : 'bg-[#f4f2eb] text-amber-800 border-amber-200/60 hover:bg-amber-100'
+                              ? 'bg-zinc-800 text-zinc-100 border-zinc-800' 
+                              : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200/60'
                           }`}
                         >
-                          {t}
+                          #{t}
                         </button>
                       );
                     })}
@@ -310,33 +322,30 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="p-2 bg-[#fcfbf9] border border-neutral-200 rounded-xl text-xs text-neutral-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-neutral-200"
-                />
+              {/* 画像追加 */}
+              <div className="flex items-center space-x-3">
+                <label className="cursor-pointer inline-flex items-center space-x-1.5 text-xs text-zinc-500 bg-zinc-100 px-3 py-2 rounded-xl hover:bg-zinc-200/60 transition">
+                  <ImageIcon size={14} />
+                  <span>画像を選択</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
+                {imagePreview && (
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-zinc-200">
+                    <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
 
-              {imagePreview && (
-                <div className="relative w-24 h-24 rounded-xl overflow-hidden border">
-                  <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs text-neutral-500 hover:text-neutral-800 cursor-pointer"
-                >
-                  キャンセル
-                </button>
+              <div className="flex justify-end space-x-2 pt-2 border-t border-zinc-100">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-[#2a2a2a] text-white text-xs rounded-xl hover:bg-black transition cursor-pointer"
+                  className="px-5 py-2 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-xl hover:bg-zinc-800 active:scale-95 transition cursor-pointer"
                 >
                   {isSubmitting ? '保存中...' : '記録する'}
                 </button>
@@ -345,160 +354,157 @@ export default function Home() {
           </section>
         )}
 
-        {/* ステータス表示 */}
+        {/* Status Notification */}
         {status && (
-          <div className="text-center text-xs text-neutral-500 animate-pulse">
+          <div className="text-center text-xs text-zinc-400 transition-all font-mono">
             {status}
           </div>
         )}
 
-        {/* 1. ある日の tokii（ランダム振り返りセクション） */}
-        <section className="bg-white p-6 sm:p-7 rounded-3xl border border-neutral-200/80 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
+        {/* 1. あの日の tokii（ランダム） */}
+        <section className="bg-white p-6 sm:p-7 rounded-3xl border border-zinc-200/70 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-amber-600 inline-block"></span>
-              <h2 className="text-sm font-serif text-neutral-800 font-medium">あの日の tokii</h2>
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-800 inline-block"></span>
+              <h2 className="text-xs font-medium tracking-wider text-zinc-500 uppercase">Flashback</h2>
             </div>
             <button
               onClick={handleFetchRandom}
-              className="text-xs text-neutral-400 hover:text-neutral-600 flex items-center space-x-1 transition cursor-pointer"
+              className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center space-x-1.5 transition cursor-pointer"
             >
-              <span>🔄</span>
-              <span>別の時をひらく</span>
+              <RefreshCw size={12} className="stroke-[2]" />
+              <span>別の時</span>
             </button>
           </div>
 
-          <div className="flex items-center space-x-2 text-xs text-neutral-500 pt-1">
-            <span>タグ絞り込み:</span>
+          <div className="flex items-center space-x-2 text-xs text-zinc-400">
+            <span>Filter:</span>
             <select
               value={randomTag}
               onChange={(e) => setRandomTag(e.target.value)}
-              className="bg-[#f7f6f2] border border-neutral-200 rounded-lg px-3 py-1.5 focus:outline-none"
+              className="bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-600 focus:outline-none"
             >
               {allTags.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>{t === 'all' ? 'すべて' : `#${t}`}</option>
               ))}
             </select>
           </div>
 
           {randomEntry ? (
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-1">
               {randomEntry.imageUrl && (
-                <div className="rounded-2xl overflow-hidden max-h-72 border border-neutral-100">
+                <div className="rounded-2xl overflow-hidden max-h-72 border border-zinc-100">
                   <img src={randomEntry.imageUrl} alt="Memory" className="w-full h-full object-cover" />
                 </div>
               )}
-              <div className="flex items-center justify-between text-xs text-neutral-400 font-serif">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono tracking-tight">
                 <span>{formatDate(randomEntry.SK, randomEntry.created_at)}</span>
                 <button 
                   onClick={() => handleDeleteEntry(randomEntry.PK, randomEntry.SK)}
-                  className="hover:text-red-500 transition cursor-pointer" 
+                  className="text-zinc-300 hover:text-rose-500 transition cursor-pointer p-1" 
                   title="削除"
                 >
-                  🗑️
+                  <Trash2 size={13} />
                 </button>
               </div>
               {randomEntry.tags && randomEntry.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {randomEntry.tags.map((t) => (
-                    <span key={t} className="text-[11px] bg-[#f4f2eb] text-amber-800 border border-amber-200/60 px-2.5 py-0.5 rounded-md">
-                      {t}
+                    <span key={t} className="text-[10px] bg-zinc-100 text-zinc-600 border border-zinc-200/60 px-2 py-0.5 rounded-full">
+                      #{t}
                     </span>
                   ))}
                 </div>
               )}
-              <p className="text-sm text-neutral-700 leading-relaxed font-serif pt-1">
+              <p className="text-sm text-zinc-700 leading-relaxed font-serif pt-0.5">
                 {randomEntry.content}
               </p>
             </div>
           ) : (
-            <div className="text-center py-10 text-neutral-400 text-xs font-serif">
-              該当するタグの記憶がありません
+            <div className="text-center py-10 text-zinc-400 text-xs">
+              記憶が見つかりませんでした
             </div>
           )}
         </section>
 
-        {/* 2. 重なる記憶（アコーディオン式タイムライン） */}
-        <section className="space-y-4 pt-4 border-t border-neutral-200/60">
-          {/* トリガーボタン */}
+        {/* 2. 重なる記憶（アコーディオン） */}
+        <section className="space-y-4 pt-2">
           <div className="flex justify-center">
             <button
               onClick={handleToggleTimeline}
-              className="px-6 py-2.5 bg-white border border-neutral-300 rounded-full text-xs text-neutral-700 hover:bg-neutral-50 transition-all flex items-center space-x-2 shadow-sm cursor-pointer"
+              className="px-5 py-2 bg-white/80 backdrop-blur-sm border border-zinc-200/80 rounded-full text-xs text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 transition-all flex items-center space-x-2 shadow-xs cursor-pointer active:scale-95"
             >
-              <span>{isTimelineOpen ? '📖 重なる記憶を閉じる' : '📖 重なる記憶を覗く'}</span>
-              <span className="text-[10px] text-neutral-400">
-                {isTimelineOpen ? '▲' : '▼'}
-              </span>
+              <Layers size={13} className="text-zinc-500" />
+              <span>{isTimelineOpen ? '重なる記憶を閉じる' : '重なる記憶を覗く'}</span>
+              {isTimelineOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
           </div>
 
-          {/* 折りたたみコンテンツ */}
           {isTimelineOpen && (
-            <div className="space-y-4 animate-fade-in pt-2">
+            <div className="space-y-4 pt-2 transition-all">
               <div className="flex items-center justify-between px-2">
-                <h2 className="text-xs font-serif text-neutral-500">最新の記憶 (最大10件)</h2>
-                <span className="text-xs text-neutral-400">{filteredEntries.length} 件</span>
+                <h2 className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase">Timeline (Latest 10)</h2>
+                <span className="text-[11px] font-mono text-zinc-400">{filteredEntries.length} items</span>
               </div>
 
-              {/* タグフィルターボタン群 */}
+              {/* タグフィルター */}
               {allTags.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                   {allTags.map((t) => (
                     <button
                       key={t}
                       onClick={() => setSelectedTag(t)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap cursor-pointer ${
+                      className={`px-3 py-1 rounded-full text-[11px] transition-all whitespace-nowrap cursor-pointer border ${
                         selectedTag === t
-                          ? 'bg-[#2a2a2a] text-white'
-                          : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+                          ? 'bg-zinc-800 text-zinc-100 border-zinc-800'
+                          : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-100'
                       }`}
                     >
-                      {t}
+                      {t === 'all' ? 'すべて' : `#${t}`}
                     </button>
                   ))}
                 </div>
               )}
 
               {/* 記憶カード一覧 */}
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 {filteredEntries.length > 0 ? (
                   filteredEntries.map((entry) => (
-                    <div key={entry.SK} className="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-sm space-y-3">
+                    <div key={entry.SK} className="bg-white p-5 rounded-2xl border border-zinc-200/70 shadow-[0_1px_8px_-2px_rgba(0,0,0,0.02)] space-y-3">
                       {entry.imageUrl && (
-                        <div className="rounded-2xl overflow-hidden max-h-64 border border-neutral-100">
+                        <div className="rounded-xl overflow-hidden max-h-56 border border-zinc-100">
                           <img src={entry.imageUrl} alt="Memory item" className="w-full h-full object-cover" />
                         </div>
                       )}
                       
-                      <div className="flex items-center justify-between text-xs text-neutral-400 font-serif">
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
                         <span>{formatDate(entry.SK, entry.created_at)}</span>
                         <button 
                           onClick={() => handleDeleteEntry(entry.PK, entry.SK)}
-                          className="hover:text-red-500 transition cursor-pointer" 
+                          className="text-zinc-300 hover:text-rose-500 transition cursor-pointer p-1" 
                           title="削除"
                         >
-                          🗑️
+                          <Trash2 size={13} />
                         </button>
                       </div>
 
                       {entry.tags && entry.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {entry.tags.map((t) => (
-                            <span key={t} className="text-[11px] bg-[#f4f2eb] text-amber-800 border border-amber-200/60 px-2.5 py-0.5 rounded-md">
-                              {t}
+                            <span key={t} className="text-[10px] bg-zinc-100 text-zinc-600 border border-zinc-200/60 px-2 py-0.5 rounded-full">
+                              #{t}
                             </span>
                           ))}
                         </div>
                       )}
 
-                      <p className="text-sm text-neutral-700 leading-relaxed font-serif">
+                      <p className="text-sm text-zinc-700 leading-relaxed font-serif">
                         {entry.content}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-xs text-neutral-400 font-serif">
+                  <div className="text-center py-8 text-xs text-zinc-400">
                     表示できる記憶がありません
                   </div>
                 )}

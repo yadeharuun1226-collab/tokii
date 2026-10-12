@@ -13,7 +13,7 @@ interface Entry {
   created_at?: string;
 }
 
-// 外部パッケージ不要の軽量インラインSVGアイコン
+// インラインSVGアイコン
 const PenIcon = () => (
   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 20h9" />
@@ -56,10 +56,8 @@ export default function Home() {
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [randomTag, setRandomTag] = useState<string>('all');
   
-  // タイムライン開閉状態
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
 
-  // 投稿フォーム状態
   const [showForm, setShowForm] = useState(false);
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
@@ -243,7 +241,7 @@ export default function Home() {
   const formatDate = (skValue?: string, createdAt?: string) => {
     const dateStr = createdAt || (skValue?.startsWith('ENTRY#') ? Number(skValue.replace('ENTRY#', '')) : null);
     const date = dateStr ? new Date(dateStr) : new Date();
-    if (isNaN(date.getTime())) return 'UNKNOWN DATE';
+    if (isNaN(date.getTime())) return '日付不明';
     return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -263,11 +261,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#F6F5F2] text-zinc-800 font-sans pb-24 selection:bg-zinc-200">
       
-      {/* Header */}
+      {/* ヘッダー */}
       <header className="max-w-xl mx-auto px-6 pt-10 pb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-medium tracking-tight text-zinc-900 font-serif">tokii</h1>
-          <p className="text-[10px] text-zinc-400 tracking-wider uppercase mt-0.5">archiving moments</p>
+          <p className="text-[10px] text-zinc-400 tracking-wider mt-0.5">時を解き、残す</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -284,7 +282,7 @@ export default function Home() {
         {showForm && (
           <section className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-zinc-200/80 shadow-sm space-y-4 transition-all">
             <div className="flex justify-between items-center">
-              <h2 className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase">New Moment</h2>
+              <h2 className="text-[11px] font-medium text-zinc-400 tracking-wider">新しい記憶を留める</h2>
               <button onClick={() => setShowForm(false)} className="text-zinc-400 hover:text-zinc-700">
                 <CloseIcon />
               </button>
@@ -294,7 +292,7 @@ export default function Home() {
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="言葉を残す..."
+                placeholder="今の思いや出来事を残す..."
                 rows={3}
                 className="w-full p-4 bg-zinc-50/50 border border-zinc-200/80 rounded-2xl focus:outline-none focus:ring-1 focus:ring-zinc-400 text-sm placeholder:text-zinc-400 resize-none transition-all"
               />
@@ -304,7 +302,7 @@ export default function Home() {
                   type="text"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
-                  placeholder="タグ (例: 感謝, 読書 - カンマ区切り)"
+                  placeholder="タグ (例: 日記, 読書 - カンマ区切り)"
                   className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200/80 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
                 />
 
@@ -385,7 +383,7 @@ export default function Home() {
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <div className="flex items-center space-x-2">
               <span className="w-1.5 h-1.5 rounded-full bg-zinc-800 inline-block"></span>
-              <h2 className="text-xs font-medium tracking-wider text-zinc-500 uppercase">Flashback</h2>
+              <h2 className="text-xs font-medium tracking-wider text-zinc-500">あの日の記憶</h2>
             </div>
             <button
               onClick={handleFetchRandom}
@@ -397,7 +395,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center space-x-2 text-xs text-zinc-400">
-            <span>Filter:</span>
+            <span>絞り込み:</span>
             <select
               value={randomTag}
               onChange={(e) => setRandomTag(e.target.value)}
@@ -462,8 +460,8 @@ export default function Home() {
           {isTimelineOpen && (
             <div className="space-y-4 pt-2 transition-all">
               <div className="flex items-center justify-between px-2">
-                <h2 className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase">Timeline (Latest 10)</h2>
-                <span className="text-[11px] font-mono text-zinc-400">{filteredEntries.length} items</span>
+                <h2 className="text-[11px] font-medium text-zinc-400 tracking-wider">タイムライン (最新10件)</h2>
+                <span className="text-[11px] font-mono text-zinc-400">{filteredEntries.length} 件</span>
               </div>
 
               {/* タグフィルター */}

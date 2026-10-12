@@ -48,7 +48,7 @@ export default function Home() {
         }
       }
 
-      // 2. あの日の tokii 用のランダム取得
+      // 2. ある日の tokii 用のランダム取得
       const randomRes = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
       if (randomRes.ok) {
         const randomData = await randomRes.json();
@@ -248,7 +248,7 @@ export default function Home() {
           className="px-4 py-2 bg-[#2a2a2a] text-white text-xs rounded-full hover:bg-black transition-colors flex items-center space-x-1.5 shadow-sm cursor-pointer"
         >
           <span>🖊</span>
-          <span>時を認める</span>
+          <span>tokiiを残す</span>
         </button>
       </header>
 
@@ -352,7 +352,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 1. あの日の tokii（ランダム振り返りセクション） */}
+        {/* 1. ある日の tokii（ランダム振り返りセクション） */}
         <section className="bg-white p-6 sm:p-7 rounded-3xl border border-neutral-200/80 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">

@@ -19,6 +19,11 @@ export default function Home() {
   const [selectedTag, setSelectedTag] = useState<string>('すべて');
   const [randomTag, setRandomTag] = useState<string>('すべて');
   
+  // タイムライン開閉 & ロード状態
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [hasLoadedTimeline, setHasLoadedTimeline] = useState(false);
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
+
   // 投稿フォーム状態
   const [showForm, setShowForm] = useState(false);
   const [content, setContent] = useState('');
@@ -28,25 +33,49 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 初期化：最初のランダムピック（および一覧の蓄積）
+  // 初期化：初回ランダムピックのみ実行
   useEffect(() => {
-    fetchAllEntries();
+    fetchRandomInitial();
   }, []);
 
-  const fetchAllEntries = async () => {
+  const fetchRandomInitial = async () => {
     try {
       const res = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       if (data) {
-        setEntries((prev) => {
-          const exists = prev.some((item) => item.SK === data.SK);
-          return exists ? prev : [data, ...prev];
-        });
-        if (!randomEntry) setRandomEntry(data);
+        setRandomEntry(data);
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // 「重なる記憶を覗く」ボタンのトグル処理（開く時に初回ロード）
+  const handleToggleTimeline = async () => {
+    if (!isTimelineOpen && !hasLoadedTimeline) {
+      await fetchLatestEntries();
+    }
+    setIsTimelineOpen((prev) => !prev);
+  };
+
+  // 最新10件を取得する関数
+  const fetchLatestEntries = async () => {
+    try {
+      setIsLoadingTimeline(true);
+      const res = await fetch(`${API_URL}/entries`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('一覧の取得に失敗しました');
+
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setEntries(data);
+        setHasLoadedTimeline(true);
+      }
+    } catch (err) {
+      console.error('Timeline load error:', err);
+      setStatus('❌ 記憶の一覧の読み込みに失敗しました');
+    } finally {
+      setIsLoadingTimeline(false);
     }
   };
 
@@ -55,15 +84,14 @@ export default function Home() {
     try {
       setStatus('過去の記憶を呼び起こしています...');
       
-      // まずAPIから新しい候補を引く、または既存のストックから探す
       const res = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
       if (!res.ok) throw new Error('記憶が見つかりませんでした');
 
       const data = await res.json();
       if (data) {
+        // タイムライン一覧に未追加なら統合
         setEntries((prev) => (prev.some((item) => item.SK === data.SK) ? prev : [data, ...prev]));
         
-        // randomTag が「すべて」または取得したデータがタグを含んでいる場合
         const targetEntries = randomTag === 'すべて' 
           ? [data, ...entries] 
           : [data, ...entries].filter((e) => e.tags?.includes(randomTag));
@@ -152,7 +180,8 @@ export default function Home() {
         created_at: new Date().toISOString(),
       };
 
-      setEntries((prev) => [createdItem, ...prev]);
+      // タイムラインの先頭に追加（最大10件を維持）
+      setEntries((prev) => [createdItem, ...prev].slice(0, 10));
       setRandomEntry(createdItem);
 
       setStatus('✨ 記憶が刻まれました');
@@ -403,67 +432,100 @@ export default function Home() {
           )}
         </section>
 
-        {/* 2. 重なる記憶（タイムライン/一覧セクション） */}
-        <section className="space-y-4 pt-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-serif text-neutral-800 font-medium">重なる記憶</h2>
-            <span className="text-xs text-neutral-400">{filteredEntries.length} 件</span>
+        {/* 2. 重なる記憶（アコーディオン式タイムライン） */}
+        <section className="space-y-4 pt-4 border-t border-neutral-200/60">
+          {/* トリガーボタン */}
+          <div className="flex justify-center">
+            <button
+              onClick={handleToggleTimeline}
+              className="px-6 py-2.5 bg-white border border-neutral-300 rounded-full text-xs text-neutral-700 hover:bg-neutral-50 transition-all flex items-center space-x-2 shadow-sm cursor-pointer"
+            >
+              <span>{isTimelineOpen ? '📖 重なる記憶を閉じる' : '📖 重なる記憶を覗く'}</span>
+              <span className="text-[10px] text-neutral-400">
+                {isTimelineOpen ? '▲' : '▼'}
+              </span>
+            </button>
           </div>
 
-          {/* タグフィルターボタン群 */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {allTags.map((t) => (
-              <button
-                key={t}
-                onClick={() => setSelectedTag(t)}
-                className={`px-3.5 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap cursor-pointer ${
-                  selectedTag === t
-                    ? 'bg-[#2a2a2a] text-white'
-                    : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          {/* ローディング表示 */}
+          {isLoadingTimeline && (
+            <div className="text-center text-xs text-neutral-400 py-6 animate-pulse font-serif">
+              刻まれた記憶を手繰り寄せています...
+            </div>
+          )}
 
-          {/* 記憶カード一覧 */}
-          <div className="space-y-4">
-            {filteredEntries.map((entry) => (
-              <div key={entry.SK} className="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-sm space-y-3">
-                {entry.imageUrl && (
-                  <div className="rounded-2xl overflow-hidden max-h-64 border border-neutral-100">
-                    <img src={entry.imageUrl} alt="Memory item" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                
-                <div className="flex items-center justify-between text-xs text-neutral-400 font-serif">
-                  <span>{formatDate(entry.SK, entry.created_at)}</span>
-                  <button 
-                    onClick={() => handleDeleteEntry(entry.PK, entry.SK)}
-                    className="hover:text-red-500 transition cursor-pointer" 
-                    title="削除"
-                  >
-                    🗑️
-                  </button>
-                </div>
-
-                {entry.tags && entry.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {entry.tags.map((t) => (
-                      <span key={t} className="text-[11px] bg-[#f4f2eb] text-amber-800 border border-amber-200/60 px-2.5 py-0.5 rounded-md">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <p className="text-sm text-neutral-700 leading-relaxed font-serif">
-                  {entry.content}
-                </p>
+          {/* 折りたたみコンテンツ */}
+          {isTimelineOpen && !isLoadingTimeline && (
+            <div className="space-y-4 animate-fade-in pt-2">
+              <div className="flex items-center justify-between px-2">
+                <h2 className="text-xs font-serif text-neutral-500">最新の記憶 (最大10件)</h2>
+                <span className="text-xs text-neutral-400">{filteredEntries.length} 件</span>
               </div>
-            ))}
-          </div>
+
+              {/* タグフィルターボタン群 */}
+              {allTags.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {allTags.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setSelectedTag(t)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap cursor-pointer ${
+                        selectedTag === t
+                          ? 'bg-[#2a2a2a] text-white'
+                          : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* 記憶カード一覧 */}
+              <div className="space-y-4">
+                {filteredEntries.length > 0 ? (
+                  filteredEntries.map((entry) => (
+                    <div key={entry.SK} className="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-sm space-y-3">
+                      {entry.imageUrl && (
+                        <div className="rounded-2xl overflow-hidden max-h-64 border border-neutral-100">
+                          <img src={entry.imageUrl} alt="Memory item" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between text-xs text-neutral-400 font-serif">
+                        <span>{formatDate(entry.SK, entry.created_at)}</span>
+                        <button 
+                          onClick={() => handleDeleteEntry(entry.PK, entry.SK)}
+                          className="hover:text-red-500 transition cursor-pointer" 
+                          title="削除"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+
+                      {entry.tags && entry.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {entry.tags.map((t) => (
+                            <span key={t} className="text-[11px] bg-[#f4f2eb] text-amber-800 border border-amber-200/60 px-2.5 py-0.5 rounded-md">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <p className="text-sm text-neutral-700 leading-relaxed font-serif">
+                        {entry.content}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-xs text-neutral-400 font-serif">
+                    表示できる記憶がありません
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
       </main>

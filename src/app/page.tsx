@@ -19,9 +19,8 @@ export default function Home() {
   const [selectedTag, setSelectedTag] = useState<string>('すべて');
   const [randomTag, setRandomTag] = useState<string>('すべて');
   
-  // タイムライン開閉 & ロード状態
+  // タイムライン開閉状態
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const [hasLoadedTimeline, setHasLoadedTimeline] = useState(false);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
 
   // 投稿フォーム状態
@@ -33,50 +32,38 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 初期化：初回ランダムピックのみ実行
+  // 初期化：起動時に「タグ選択用のデータ（最新10件）」と「ランダム表示用」をロード
   useEffect(() => {
-    fetchRandomInitial();
+    initializeAppData();
   }, []);
 
-  const fetchRandomInitial = async () => {
+  const initializeAppData = async () => {
     try {
-      const res = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data) {
-        setRandomEntry(data);
+      // 1. 一覧（タグ候補用）を取得
+      const listRes = await fetch(`${API_URL}/entries`, { cache: 'no-store' });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        if (Array.isArray(listData) && listData.length > 0) {
+          setEntries(listData);
+        }
+      }
+
+      // 2. あの日の tokii 用のランダム取得
+      const randomRes = await fetch(`${API_URL}/entries/random`, { cache: 'no-store' });
+      if (randomRes.ok) {
+        const randomData = await randomRes.json();
+        if (randomData) {
+          setRandomEntry(randomData);
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('Initialization error:', err);
     }
   };
 
-  // 「重なる記憶を覗く」ボタンのトグル処理（開く時に初回ロード）
-  const handleToggleTimeline = async () => {
-    if (!isTimelineOpen && !hasLoadedTimeline) {
-      await fetchLatestEntries();
-    }
+  // 「重なる記憶を覗く」ボタンのトグル処理
+  const handleToggleTimeline = () => {
     setIsTimelineOpen((prev) => !prev);
-  };
-
-  // 最新10件を取得する関数
-  const fetchLatestEntries = async () => {
-    try {
-      setIsLoadingTimeline(true);
-      const res = await fetch(`${API_URL}/entries`, { cache: 'no-store' });
-      if (!res.ok) throw new Error('一覧の取得に失敗しました');
-
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setEntries(data);
-        setHasLoadedTimeline(true);
-      }
-    } catch (err) {
-      console.error('Timeline load error:', err);
-      setStatus('❌ 記憶の一覧の読み込みに失敗しました');
-    } finally {
-      setIsLoadingTimeline(false);
-    }
   };
 
   // タグ絞り込みを考慮したランダム取得
@@ -89,7 +76,6 @@ export default function Home() {
 
       const data = await res.json();
       if (data) {
-        // タイムライン一覧に未追加なら統合
         setEntries((prev) => (prev.some((item) => item.SK === data.SK) ? prev : [data, ...prev]));
         
         const targetEntries = randomTag === 'すべて' 
@@ -290,7 +276,7 @@ export default function Home() {
                   className="w-full p-3 bg-[#fcfbf9] border border-neutral-200 rounded-xl text-xs focus:outline-none"
                 />
 
-                {/* 登録済みタグからのクイック選択バッジ */}
+                {/* 登録済みタグからのクイック選択バッジ（初期表示から反映されます） */}
                 {allTags.filter((t) => t !== 'すべて').length > 0 && (
                   <div className="flex flex-wrap gap-1 items-center pt-1">
                     <span className="text-[10px] text-neutral-400 mr-1">既存タグから選ぶ:</span>
@@ -447,15 +433,8 @@ export default function Home() {
             </button>
           </div>
 
-          {/* ローディング表示 */}
-          {isLoadingTimeline && (
-            <div className="text-center text-xs text-neutral-400 py-6 animate-pulse font-serif">
-              刻まれた記憶を手繰り寄せています...
-            </div>
-          )}
-
           {/* 折りたたみコンテンツ */}
-          {isTimelineOpen && !isLoadingTimeline && (
+          {isTimelineOpen && (
             <div className="space-y-4 animate-fade-in pt-2">
               <div className="flex items-center justify-between px-2">
                 <h2 className="text-xs font-serif text-neutral-500">最新の記憶 (最大10件)</h2>
